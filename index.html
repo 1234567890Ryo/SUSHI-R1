@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>18穴ルーレット ORナビ</title>
+  <link rel="manifest" href="./manifest.json" />
+  <meta name="theme-color" content="#0f172a" />
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card: #1e293b;
+      --card-2: #0b1220;
+      --border: #334155;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --accent: #38bdf8;
+      --good: #22c55e;
+      --warn: #f59e0b;
+      --bad: #ef4444;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 16px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Hiragino Sans", "Noto Sans JP", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+    }
+    .container {
+      max-width: 780px;
+      margin: 0 auto;
+      display: grid;
+      gap: 14px;
+    }
+    h1 { margin: 0; font-size: 1.25rem; }
+    .sub { color: var(--muted); font-size: 0.9rem; margin-top: 2px; }
+    .step {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px;
+    }
+    .step-title {
+      font-weight: 700;
+      font-size: 1rem;
+      margin-bottom: 10px;
+      color: var(--accent);
+    }
+    .row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+    input, button {
+      font-size: 1rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      padding: 10px 12px;
+      min-height: 44px;
+    }
+    input { background: var(--card-2); color: var(--text); }
+    button {
+      background: #2563eb;
+      color: #fff;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+    button.secondary { background: #334155; }
+    .badges { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+    .badge {
+      background: var(--card-2);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 4px 10px;
+      font-size: 0.85rem;
+    }
+    .verdict {
+      font-size: 1.1rem;
+      font-weight: 700;
+      padding: 8px 12px;
+      border-radius: 8px;
+      display: inline-block;
+      margin-bottom: 6px;
+    }
+    .go { background: rgba(34, 197, 94, 0.18); color: #86efac; border: 1px solid var(--good); }
+    .hold { background: rgba(245, 158, 11, 0.18); color: #fcd34d; border: 1px solid var(--warn); }
+    .skip { background: rgba(239, 68, 68, 0.18); color: #fca5a5; border: 1px solid var(--bad); }
+    .groups {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .gbox {
+      background: var(--card-2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px;
+    }
+    .ghead { font-weight: 700; margin-bottom: 4px; }
+    .impossible { color: #fca5a5; font-weight: 700; }
+    .free-pick { color: #7dd3fc; font-weight: 700; }
+    .error-msg { color: #fca5a5; font-size: 0.9rem; margin-top: 6px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div>
+      <h1>18穴ルーレット ORナビ</h1>
+      <div class="sub">動物17匹 + OUT1穴（キープ制・3球後フリー枠1つ選択・残り2球）</div>
+    </div>
+
+    <section class="step">
+      <div class="step-title">0. 盤面セット</div>
+      <div class="row">
+        <button type="button" class="secondary" data-preset="55511">55511</button>
+        <button type="button" class="secondary" data-preset="55331">55331</button>
+        <button type="button" class="secondary" data-preset="543311">543311</button>
+        <button type="button" class="secondary" data-preset="533321">533321</button>
+        <button type="button" class="secondary" data-preset="5222222">5222222</button>
+      </div>
+      <div class="row" style="margin-top: 10px;">
+        <input id="boardInput" type="text" placeholder="例: 543311（合計17）" value="543311" />
+        <button type="button" id="applyBoardBtn">盤面を反映</button>
+      </div>
+      <div id="boardError" class="error-msg"></div>
+      <div id="boardBreakdown" class="badges"></div>
+    </section>
+
+    <section class="step">
+      <div class="step-title">1. 判定（目安）</div>
+      <div id="verdictBox"></div>
+      <div id="verdictReason" class="sub"></div>
+    </section>
+
+    <section class="step">
+      <div class="step-title">2. 最初に賭ける3グループ（各5個固定・途中で変更なし）</div>
+      <div id="orSummary" style="font-weight: 700; margin-bottom: 8px;"></div>
+      <div id="groupsView" class="groups"></div>
+    </section>
+
+    <section class="step">
+      <div class="step-title">3. 前半3球の入賞入力＆各グループ個別フリー枠</div>
+      <div class="row" style="margin-bottom: 8px;">
+        <span class="sub">入力済み（最大3球）:</span>
+        <strong id="ball3View">なし</strong>
+        <button type="button" class="secondary" id="resetBallsBtn">3球リセット</button>
+      </div>
+      <div id="ballButtons" class="row"></div>
+      <div id="freeResultView" class="groups"></div>
+    </section>
+  </div>
+
+  <script>
+    (function () {
+      const LABELS = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
+      let counts = [5, 4, 3, 3, 1, 1];
+      let ball3 = [];
+      let currentGroups = [];
+
+      function parseCode(code) {
+        const clean = String(code || '').trim().replace(/[^1-5]/g, '');
+        if (!clean) return { error: '1〜5の数字で盤面を入力してください（合計17）。' };
+        const arr = clean.split('').map(Number);
+        if (arr.length < 5 || arr.length > 7) {
+          return { error: '動物数は5〜7種類にしてください。' };
+        }
+        const sum = arr.reduce((a, b) => a + b, 0);
+        if (sum !== 17) {
+          return { error: '動物の合計が17になるようにしてください（現在: ' + sum + '）。' };
+        }
+        return { counts: arr };
+      }
+
+      function comb(n, r) {
+        if (r < 0 || r > n) return 0;
+        if (r === 0 || r === n) return 1;
+        r = Math.min(r, n - r);
+        let num = 1;
+        let den = 1;
+        for (let i = 1; i <= r; i++) {
+          num *= (n - r + i);
+          den *= i;
+        }
+        return num / den;
+      }
+
+      function generateGroupCandidates(boardCounts) {
+        const k = boardCounts.length;
+        const results = [];
+
+        function dfs(idx, rem, picked) {
+          const currentSum = picked.reduce((a, b) => a + b, 0);
+          if (currentSum === 5) {
+            if (!picked.some((x) => x === 5)) {
+              results.push(picked.slice());
+            }
+            return;
+          }
+          if (idx >= k || rem <= 0) return;
+
+          const maxTake = Math.min(boardCounts[idx], rem, 4);
+          for (let take = maxTake; take >= 0; take--) {
+            picked[idx] = take;
+            dfs(idx + 1, rem - take, picked);
+          }
+          picked[idx] = 0;
+        }
+
+        dfs(0, 5, Array(k).fill(0));
+        return results;
+      }
+
+      function groupSingleProb(groupPick) {
+        const need = 3;
+        const targetSum = groupPick.reduce((a, b) => a + b, 0);
+        if (targetSum < need) return 0;
+        let prob = 0;
+        for (let hit = need; hit <= Math.min(5, targetSum); hit++) {
+          const miss = 5 - hit;
+          const otherPockets = 18 - targetSum;
+          if (miss > otherPockets) continue;
+          prob += (comb(targetSum, hit) * comb(otherPockets, miss)) / comb(18, 5);
+        }
+        return Math.min(1, Math.max(0, prob));
+      }
+
+      function overlapScore(a, b) {
+        let s = 0;
+        for (let i = 0; i < Math.min(a.length, b.length); i++) {
+          s += Math.min(a[i], b[i]);
+        }
+        return s;
+      }
+
+      function buildThreeGroups(boardCounts) {
+        const cands = generateGroupCandidates(boardCounts);
+        if (!cands.length) return [];
+
+        const scored = cands
+          .map((g) => ({ pick: g, p: groupSingleProb(g) }))
+          .sort((a, b) => b.p - a.p);
+
+        const g1 = scored[0].pick;
+        let bestTriple = null;
+        let bestScore = -1;
+        const pool = scored.slice(0, Math.min(35, scored.length));
+
+        for (let i = 0; i < pool.length; i++) {
+          for (let j = i + 1; j < pool.length; j++) {
+            const g2 = pool[i].pick;
+            const g3 = pool[j].pick;
+            const overlap = overlapScore(g1, g2) + overlapScore(g1, g3) + overlapScore(g2, g3);
+            const avgP = (groupSingleProb(g1) + groupSingleProb(g2) + groupSingleProb(g3)) / 3;
+            const approxOr = 1 - Math.pow(1 - Math.min(0.92, avgP * 1.35), 3);
+            const score = approxOr - overlap * 0.015;
+            if (score > bestScore) {
+              bestScore = score;
+              bestTriple = [g1, g2, g3];
+            }
+          }
+        }
+
+        const finalGroups = bestTriple || [g1, scored[1] ? scored[1].pick : g1, scored[2] ? scored[2].pick : g1];
+        return finalGroups.map((pick, idx) => ({
+          name: 'G' + (idx + 1),
+          pick: pick,
+          prob: groupSingleProb(pick)
+        }));
+      }
+
+      function calcOrWinRate(groups) {
+        if (!groups.length) return 0;
+        const p1 = groups[0] ? groups[0].prob : 0;
+        const p2 = groups[1] ? groups[1].prob : 0;
+        const p3 = groups[2] ? groups[2].prob : 0;
+        const independentOr = 1 - (1 - p1) * (1 - p2) * (1 - p3);
+        return Math.min(99.9, Math.max(0, independentOr * 100));
+      }
+
+      function formatPick(pick) {
+        const parts = [];
+        pick.forEach((cnt, idx) => {
+          if (cnt > 0) parts.push(LABELS[idx] + '×' + cnt);
+        });
+        return parts.length ? parts.join(' / ') + '（計5）' : 'なし';
+      }
+
+      function evaluateAfterThreeBalls(group) {
+        const remBalls = 3 - ball3.length;
+        if (remBalls > 0) {
+          return { status: 'waiting', text: 'あと' + remBalls + '球入力してください' };
+        }
+
+        const got = Array(counts.length).fill(0);
+        ball3.forEach((b) => {
+          if (typeof b === 'number' && b >= 0 && b < got.length) {
+            got[b] += 1;
+          }
+        });
+
+        const remTotalPockets = 15;
+        let bestFreeIdx = null;
+        let bestProb = -1;
+
+        for (let freeCandidate = 0; freeCandidate < group.pick.length; freeCandidate++) {
+          if (group.pick[freeCandidate] <= 0) continue;
+
+          const effectivePick = group.pick.slice();
+          effectivePick[freeCandidate] -= 1;
+
+          let alreadyMatched = 0;
+          let neededTargets = 0;
+
+          for (let i = 0; i < effectivePick.length; i++) {
+            const want = effectivePick[i];
+            const have = got[i];
+            alreadyMatched += Math.min(want, have);
+            neededTargets += Math.max(0, want - have);
+          }
+
+          const missingCount = Math.max(0, 4 - alreadyMatched);
+          if (missingCount > 2) continue;
+
+          const targetPool = Math.min(remTotalPockets, Math.max(neededTargets, missingCount));
+          let p = 0;
+          if (missingCount === 0) {
+            p = 1;
+          } else if (missingCount === 1) {
+            p = targetPool / remTotalPockets;
+          } else if (missingCount === 2) {
+            p = (targetPool * (targetPool - 1)) / (remTotalPockets * (remTotalPockets - 1));
+          }
+
+          p = Math.min(1, Math.max(0, p));
+          if (p > bestProb) {
+            bestProb = p;
+            bestFreeIdx = freeCandidate;
+          }
+        }
+
+        if (bestFreeIdx === null || bestProb <= 0) {
+          return { status: 'impossible', text: '達成不可（0%）' };
+        }
+
+        return {
+          status: 'ok',
+          freeLabel: LABELS[bestFreeIdx],
+          probPct: (bestProb * 100).toFixed(1)
+        };
+      }
+
+      function renderAll() {
+        const bd = document.getElementById('boardBreakdown');
+        bd.innerHTML =
+          counts.map((c, i) => '<span class="badge">' + LABELS[i] + ': ' + c + '</span>').join('') +
+          '<span class="badge">OUT: 1</span>';
+
+        const orRate = calcOrWinRate(currentGroups);
+        const vBox = document.getElementById('verdictBox');
+        const vReason = document.getElementById('verdictReason');
+        if (orRate >= 60) {
+          vBox.innerHTML = '<span class="verdict go">GO（目安） / 推定OR勝率 ' + orRate.toFixed(1) + '%</span>';
+          vReason.textContent = '3グループの和集合カバー率が高めです。最初の5個固定のまま3球目を待ちましょう。';
+        } else if (orRate >= 55) {
+          vBox.innerHTML = '<span class="verdict hold">様子見（目安） / 推定OR勝率 ' + orRate.toFixed(1) + '%</span>';
+          vReason.textContent = '標準圏内です。盤面の偏りと手持ちメダル状況に合わせて判断してください。';
+        } else {
+          vBox.innerHTML = '<span class="verdict skip">見送り寄り（目安） / 推定OR勝率 ' + orRate.toFixed(1) + '%</span>';
+          vReason.textContent = '分散が効きにくくOR勝率が控えめな盤面です。無理な連投は控えめがおすすめです。';
+        }
+
+        document.getElementById('orSummary').textContent =
+          '3グループいずれか1つ以上達成（OR勝率目安）: ' + orRate.toFixed(1) + '%';
+
+        document.getElementById('groupsView').innerHTML = currentGroups
+          .map((g) =>
+            '<div class="gbox">' +
+              '<div class="ghead">' + g.name + '（最初に5個選択）</div>' +
+              '<div>' + formatPick(g.pick) + '</div>' +
+              '<div class="sub">単体目安: ' + (g.prob * 100).toFixed(1) + '%</div>' +
+            '</div>'
+          )
+          .join('');
+
+        const bView = document.getElementById('ball3View');
+        bView.textContent = ball3.length
+          ? ball3.map((b) => (b === 'OUT' ? 'OUT' : LABELS[b])).join(' → ')
+          : 'なし';
+
+        const btnWrap = document.getElementById('ballButtons');
+        const disabledAttr = ball3.length >= 3 ? 'disabled' : '';
+        const animalBtns = counts
+          .map((_, idx) =>
+            '<button type="button" class="secondary ball-btn" data-ball="' + idx + '" ' + disabledAttr + '>' + LABELS[idx] + '</button>'
+          )
+          .join('');
+        const outBtn = '<button type="button" class="secondary ball-btn" data-ball="OUT" ' + disabledAttr + '>OUT</button>';
+        btnWrap.innerHTML = animalBtns + outBtn;
+
+        btnWrap.querySelectorAll('.ball-btn').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            if (ball3.length >= 3) return;
+            const raw = btn.getAttribute('data-ball');
+            ball3.push(raw === 'OUT' ? 'OUT' : Number(raw));
+            renderAll();
+          });
+        });
+
+        document.getElementById('freeResultView').innerHTML = currentGroups
+          .map((g) => {
+            const ev = evaluateAfterThreeBalls(g);
+            let bodyHtml = '';
+            if (ev.status === 'waiting') {
+              bodyHtml = '<div class="sub">' + ev.text + '</div>';
+            } else if (ev.status === 'impossible') {
+              bodyHtml =
+                '<div class="impossible">達成不可（0%）</div>' +
+                '<div class="sub">残り2球では必要数に届きません</div>';
+            } else {
+              bodyHtml =
+                '<div class="free-pick">フリー枠：' + ev.freeLabel + ' を選択</div>' +
+                '<div class="sub">残り2球達成目安: ' + ev.probPct + '%</div>';
+            }
+            return '<div class="gbox"><div class="ghead">' + g.name + '</div>' + bodyHtml + '</div>';
+          })
+          .join('');
+      }
+
+      function applyBoardFromInput() {
+        const code = document.getElementById('boardInput').value;
+        const res = parseCode(code);
+        const errEl = document.getElementById('boardError');
+        if (res.error) {
+          errEl.textContent = res.error;
+          return;
+        }
+        errEl.textContent = '';
+        counts = res.counts;
+        ball3 = [];
+        currentGroups = buildThreeGroups(counts);
+        renderAll();
+      }
+
+      document.querySelectorAll('[data-preset]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const code = btn.getAttribute('data-preset');
+          document.getElementById('boardInput').value = code;
+          applyBoardFromInput();
+        });
+      });
+
+      document.getElementById('applyBoardBtn').addEventListener('click', applyBoardFromInput);
+      document

@@ -1,0 +1,10 @@
+{
+  "name": "18穴ルーレット ORナビ",
+  "short_name": "18穴ORナビ",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a"
+}
